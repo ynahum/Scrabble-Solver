@@ -2,8 +2,6 @@ from dawg import *
 from board import ScrabbleBoard
 import pygame
 import sys
-import random
-import pickle
 
 
 # returns a list of all words played on the board
@@ -39,7 +37,7 @@ def all_board_words(board):
 
 def refill_word_rack(rack, tile_bag):
     to_add = min([7 - len(rack), len(tile_bag)])
-    new_letters = random.sample(tile_bag, to_add)
+    new_letters = tile_bag[:to_add]
     rack = rack + new_letters
     return rack, new_letters
 
@@ -188,97 +186,186 @@ def draw_computer_score(word_score_dict):
     screen.blit(total_score, (705, 700))
 
 
+def load_dictionary(file_path):
+    with open(file_path, 'r') as file:
+        return {word.strip().lower() for word in file}
+
+
+def word_exists_in_dictionary(word, dictionary):
+    return word.lower() in dictionary
+
+
+def parse_tests_file(file_path):
+    with open(file_path, 'r') as file:
+        file_content = file.read()
+        return file_content
+
+
+def parse_board_and_letters(test_case):
+    lines = test_case.strip().split('\n')
+    ordered_letters = lines[0]
+    board_definition = "\n".join(lines[1:])
+    return ordered_letters, board_definition
+
+
+def parse_test_cases(content):
+    test_cases = content.strip().split('\n\n')
+    parsed_test_cases = []
+
+    for test_case in test_cases:
+        lines = test_case.strip().split('\n', 1)
+        test_number = int(lines[0].strip().strip(':'))
+        ordered_letters, board_definition = parse_board_and_letters(lines[1])
+        parsed_test_cases.append((test_number, ordered_letters, board_definition))
+
+    return parsed_test_cases
+
+
+def run_test_case(ordered_letters_list, board_definition, letter_points, dictionary_file):
+    pass
+
+class Board():
+    def __init__(self, board_def):
+        board_lines = board_def.strip().split('\n')
+        self.num_rows, self.num_cols = map(int, board_lines[0].split(','))
+        self.start_row, self.start_col = map(int, board_lines[1].split(','))
+        self.special_tiles = {}
+        self.num_special_tiles = int(board_lines[2])
+        for i in range(3, 3 + self.num_special_tiles):
+            row, col, tile_type = board_lines[i].split(',')
+            self.special_tiles[(int(row), int(col))] = tile_type
+        self._array = [ [ 0 for _ in range(self.num_cols)] for _ in range(self.num_rows)]
+
+    def print_board(self):
+        board_str = ""
+        for i in range(self.num_rows):
+            for j in range(self.num_cols):
+                board_str += str(self._array[i][j])
+            board_str += "\n"
+        print(board_str)
+
+
 if __name__ == "__main__":
 
-    pygame.init()
+    letter_points = {'A': 1, 'B': 3, 'C': 3, 'D': 2, 'E': 1, 'F': 4, 'G': 2,
+                     'H': 4, 'I': 1, 'J': 8, 'K': 5, 'L': 1, 'M': 3,
+                     'N': 1, 'O': 1, 'P': 3, 'Q': 10, 'R': 1, 'S': 1, 'T': 1,
+                     'U': 1, 'V': 4, 'W': 4, 'X': 8, 'Y': 4, 'Z': 10};
 
-    # Game-level variables
-    screen_width = 1000
-    screen_height = 800
-    screen = pygame.display.set_mode((screen_width, screen_height))
-    clock = pygame.time.Clock()
-    square_width = 40
-    square_height = 40
-    margin = 3
-    mouse_x = 0
-    mouse_y = 0
-    x_offset = 20
-    y_offset = 20
-    modifier_font = pygame.font.Font(None, 12)
-    tile_font = pygame.font.Font(None, 45)
-    score_font = pygame.font.Font(None, 25)
-    game_state = "start_screen"
+    dictionary_file = "dictionary.txt"  # Assuming "dictionary.txt" contains the valid words
+    dictionary = load_dictionary(dictionary_file)
 
-    tile_bag = ["A"] * 9 + ["B"] * 2 + ["C"] * 2 + ["D"] * 4 + ["E"] * 12 + ["F"] * 2 + ["G"] * 3 + \
-               ["H"] * 2 + ["I"] * 9 + ["J"] * 1 + ["K"] * 1 + ["L"] * 4 + ["M"] * 2 + ["N"] * 6 + \
-               ["O"] * 8 + ["P"] * 2 + ["Q"] * 1 + ["R"] * 6 + ["S"] * 4 + ["T"] * 6 + ["U"] * 4 + \
-               ["V"] * 2 + ["W"] * 2 + ["X"] * 1 + ["Y"] * 2 + ["Z"] * 1 + ["%"] * 2
+    file_path = "C2.txt"
+    test_cases_content = parse_tests_file(file_path)
+    parsed_test_cases = parse_test_cases(test_cases_content)
 
-    to_load = open("lexicon/scrabble_words_complete.pickle", "rb")
-    root = pickle.load(to_load)
-    to_load.close()
-    word_rack = random.sample(tile_bag, 7)
-    [tile_bag.remove(letter) for letter in word_rack]
-    game = ScrabbleBoard(root)
-    word_rack = game.get_start_move(word_rack)
-    word_rack, new_letters = refill_word_rack(word_rack, tile_bag)
-    [tile_bag.remove(letter) for letter in new_letters]
+    for test_number, ordered_letters, board_definition in parsed_test_cases:
 
-    pygame.display.set_caption("Scrabble")
-
-    while True:
-        pygame.display.update()
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE and game_state == "start_screen":
-                    game_state = "game_screen"
-                if event.key == pygame.K_SPACE and game_state == "end_screen":
-                    game_state = "game_screen"
-                    tile_bag = ["A"] * 9 + ["B"] * 2 + ["C"] * 2 + ["D"] * 4 + ["E"] * 12 + ["F"] * 2 + ["G"] * 3 + \
-                               ["H"] * 2 + ["I"] * 9 + ["J"] * 1 + ["K"] * 1 + ["L"] * 4 + ["M"] * 2 + ["N"] * 6 + \
-                               ["O"] * 8 + ["P"] * 2 + ["Q"] * 1 + ["R"] * 6 + ["S"] * 4 + ["T"] * 6 + ["U"] * 4 + \
-                               ["V"] * 2 + ["W"] * 2 + ["X"] * 1 + ["Y"] * 2 + ["Z"] * 1 + ["%"] * 2
-
-                    word_rack = random.sample(tile_bag, 7)
-                    [tile_bag.remove(letter) for letter in word_rack]
-                    game = ScrabbleBoard(root)
-                    game.get_start_move(word_rack)
-                    word_rack, new_letters = refill_word_rack(word_rack, tile_bag)
-                    [tile_bag.remove(letter) for letter in new_letters]
-
-        if game_state == "start_screen":
-            draw_start_screen()
+        if test_number != 2:
             continue
 
-        if game_state == "game_screen":
-            screen.fill((0, 0, 0))
+        print(f"{test_number}:")
 
-            word_rack = game.get_best_move(word_rack)
-            word_rack, new_letters = refill_word_rack(word_rack, tile_bag)
-            [tile_bag.remove(letter) for letter in new_letters]
-            if game.best_word == "":
-                # draw new hand if can't find any words
-                if len(tile_bag) >= 7:
-                    return_to_bag_words = word_rack.copy()
-                    word_rack, new_letters = refill_word_rack([], tile_bag)
-                    [tile_bag.remove(letter) for letter in new_letters]
+        ordered_letters_list = list(ordered_letters)
 
-                else:
-                    game_state = "end_screen"
-                    for word in all_board_words(game.board):
-                        if not find_in_dawg(word, root) and word:
-                            raise Exception(f"Invalid word on board: {word}")
+        # print("Ordered Letters:", ordered_letters)
+        # print("Board Definition:")
+        # print(board_definition)
+        b = Board(board_definition)
 
-        if game_state == "end_screen":
+        run_test_case(ordered_letters_list, board_definition, letter_points, dictionary_file)
+
+        pygame.init()
+
+        # Game-level variables
+        screen_width = 1000
+        screen_height = 800
+        screen = pygame.display.set_mode((screen_width, screen_height))
+        clock = pygame.time.Clock()
+        square_width = 40
+        square_height = 40
+        margin = 3
+        mouse_x = 0
+        mouse_y = 0
+        x_offset = 20
+        y_offset = 20
+        modifier_font = pygame.font.Font(None, 12)
+        tile_font = pygame.font.Font(None, 45)
+        score_font = pygame.font.Font(None, 25)
+        game_state = "start_screen"
+
+        tile_bag = ["A"] * 9 + ["B"] * 2 + ["C"] * 2 + ["D"] * 4 + ["E"] * 12 + ["F"] * 2 + ["G"] * 3 + \
+                   ["H"] * 2 + ["I"] * 9 + ["J"] * 1 + ["K"] * 1 + ["L"] * 4 + ["M"] * 2 + ["N"] * 6 + \
+                   ["O"] * 8 + ["P"] * 2 + ["Q"] * 1 + ["R"] * 6 + ["S"] * 4 + ["T"] * 6 + ["U"] * 4 + \
+                   ["V"] * 2 + ["W"] * 2 + ["X"] * 1 + ["Y"] * 2 + ["Z"] * 1 + ["%"] * 2
+
+        to_load = open("lexicon/scrabble_words_complete.pickle", "rb")
+        root = pickle.load(to_load)
+        to_load.close()
+        print(f"{tile_bag}")
+        word_rack = tile_bag[:7]
+        [tile_bag.remove(letter) for letter in word_rack]
+        game = ScrabbleBoard(root)
+        word_rack = game.get_start_move(word_rack)
+        word_rack, new_letters = refill_word_rack(word_rack, tile_bag)
+        [tile_bag.remove(letter) for letter in new_letters]
+
+        pygame.display.set_caption("Scrabble")
+
+        while True:
+            pygame.display.update()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE and game_state == "start_screen":
+                        game_state = "game_screen"
+                    if event.key == pygame.K_SPACE and game_state == "end_screen":
+                        game_state = "game_screen"
+                        tile_bag = ["A"] * 9 + ["B"] * 2 + ["C"] * 2 + ["D"] * 4 + ["E"] * 12 + ["F"] * 2 + ["G"] * 3 + \
+                                   ["H"] * 2 + ["I"] * 9 + ["J"] * 1 + ["K"] * 1 + ["L"] * 4 + ["M"] * 2 + ["N"] * 6 + \
+                                   ["O"] * 8 + ["P"] * 2 + ["Q"] * 1 + ["R"] * 6 + ["S"] * 4 + ["T"] * 6 + ["U"] * 4 + \
+                                   ["V"] * 2 + ["W"] * 2 + ["X"] * 1 + ["Y"] * 2 + ["Z"] * 1 + ["%"] * 2
+                        print(f"{tile_bag}")
+
+                        word_rack = tile_bag[:7]
+                        [tile_bag.remove(letter) for letter in word_rack]
+                        game = ScrabbleBoard(root)
+                        game.get_start_move(word_rack)
+                        word_rack, new_letters = refill_word_rack(word_rack, tile_bag)
+                        [tile_bag.remove(letter) for letter in new_letters]
+
+            if game_state == "start_screen":
+                draw_start_screen()
+                continue
+
+            if game_state == "game_screen":
+                screen.fill((0, 0, 0))
+
+                word_rack = game.get_best_move(word_rack)
+                word_rack, new_letters = refill_word_rack(word_rack, tile_bag)
+                [tile_bag.remove(letter) for letter in new_letters]
+                if game.best_word == "":
+                    # draw new hand if can't find any words
+                    if len(tile_bag) >= 7:
+                        return_to_bag_words = word_rack.copy()
+                        word_rack, new_letters = refill_word_rack([], tile_bag)
+                        [tile_bag.remove(letter) for letter in new_letters]
+
+                    else:
+                        game_state = "end_screen"
+                        for word in all_board_words(game.board):
+                            if not find_in_dawg(word, root) and word:
+                                raise Exception(f"Invalid word on board: {word}")
+
+            if game_state == "end_screen":
+                draw_board(game.board)
+                draw_rack(word_rack)
+                draw_computer_score(game.word_score_dict)
+                continue
+
             draw_board(game.board)
             draw_rack(word_rack)
             draw_computer_score(game.word_score_dict)
-            continue
-
-        draw_board(game.board)
-        draw_rack(word_rack)
-        draw_computer_score(game.word_score_dict)
-        pygame.time.wait(75)
+            pygame.time.wait(75)
