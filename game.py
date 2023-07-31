@@ -188,7 +188,7 @@ def draw_computer_score(word_score_dict):
 
 def load_dictionary(file_path):
     with open(file_path, 'r') as file:
-        return {word.strip().lower() for word in file}
+        return [word.strip().upper() for word in file]
 
 
 def word_exists_in_dictionary(word, dictionary):
@@ -255,18 +255,28 @@ if __name__ == "__main__":
     dictionary_file = "dictionary.txt"  # Assuming "dictionary.txt" contains the valid words
     dictionary = load_dictionary(dictionary_file)
 
+    #big_list = open("lexicon/scrabble_words_complete.txt", "r").readlines()
+    #big_list = [word.strip("\n") for word in big_list]
+    #build_trie(dictionary)
+    root = build_dawg(dictionary)
+
+    #to_load = open("lexicon/scrabble_words_complete.pickle", "rb")
+    #root = pickle.load(to_load)
+    print(root)
+    #to_load.close()
+
     file_path = "C2.txt"
     test_cases_content = parse_tests_file(file_path)
     parsed_test_cases = parse_test_cases(test_cases_content)
 
     for test_number, ordered_letters, board_definition in parsed_test_cases:
 
-        if test_number != 2:
+        if test_number != 1:
             continue
 
         print(f"{test_number}:")
 
-        ordered_letters_list = list(ordered_letters)
+        ordered_letters_list = list(map(str.upper, list(ordered_letters)))
 
         # print("Ordered Letters:", ordered_letters)
         # print("Board Definition:")
@@ -294,14 +304,7 @@ if __name__ == "__main__":
         score_font = pygame.font.Font(None, 25)
         game_state = "start_screen"
 
-        tile_bag = ["A"] * 9 + ["B"] * 2 + ["C"] * 2 + ["D"] * 4 + ["E"] * 12 + ["F"] * 2 + ["G"] * 3 + \
-                   ["H"] * 2 + ["I"] * 9 + ["J"] * 1 + ["K"] * 1 + ["L"] * 4 + ["M"] * 2 + ["N"] * 6 + \
-                   ["O"] * 8 + ["P"] * 2 + ["Q"] * 1 + ["R"] * 6 + ["S"] * 4 + ["T"] * 6 + ["U"] * 4 + \
-                   ["V"] * 2 + ["W"] * 2 + ["X"] * 1 + ["Y"] * 2 + ["Z"] * 1 + ["%"] * 2
-
-        to_load = open("lexicon/scrabble_words_complete.pickle", "rb")
-        root = pickle.load(to_load)
-        to_load.close()
+        tile_bag = ordered_letters_list
         print(f"{tile_bag}")
         word_rack = tile_bag[:7]
         [tile_bag.remove(letter) for letter in word_rack]
