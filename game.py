@@ -1,17 +1,19 @@
+import copy
+
 from dawg import *
-from board import ScrabbleBoard
+from board import ScrabbleBoard, BoardParams
 import pygame
 import sys
 
 
 # returns a list of all words played on the board
-def all_board_words(board):
+def all_board_words(board, board_params):
     board_words = []
 
     # check regular board
-    for row in range(0, 15):
+    for row in range(0, board_params.num_rows):
         temp_word = ""
-        for col in range(0, 16):
+        for col in range(0, board_params.num_cols):
             letter = board[row][col].letter
             if letter:
                 temp_word += letter
@@ -21,9 +23,9 @@ def all_board_words(board):
                 temp_word = ""
 
     # check transposed board
-    for col in range(0, 16):
+    for col in range(0, board_params.num_cols):
         temp_word = ""
-        for row in range(0, 16):
+        for row in range(0, board_params.num_rows):
             letter = board[row][col].letter
             if letter:
                 temp_word += letter
@@ -42,9 +44,9 @@ def refill_word_rack(rack, tile_bag):
     return rack, new_letters
 
 
-def draw_board(board):
-    for y in range(15):
-        for x in range(15):
+def draw_board(board, board_params):
+    for y in range(board_params.num_rows):
+        for x in range(board_params.num_cols):
             if board[x][y].letter:
                 if board[x][y].letter == "I":
                     letter_x_offset = 15
@@ -221,30 +223,6 @@ def parse_test_cases(content):
     return parsed_test_cases
 
 
-def run_test_case(ordered_letters_list, board_definition, letter_points, dictionary_file):
-    pass
-
-class Board():
-    def __init__(self, board_def):
-        board_lines = board_def.strip().split('\n')
-        self.num_rows, self.num_cols = map(int, board_lines[0].split(','))
-        self.start_row, self.start_col = map(int, board_lines[1].split(','))
-        self.special_tiles = {}
-        self.num_special_tiles = int(board_lines[2])
-        for i in range(3, 3 + self.num_special_tiles):
-            row, col, tile_type = board_lines[i].split(',')
-            self.special_tiles[(int(row), int(col))] = tile_type
-        self._array = [ [ 0 for _ in range(self.num_cols)] for _ in range(self.num_rows)]
-
-    def print_board(self):
-        board_str = ""
-        for i in range(self.num_rows):
-            for j in range(self.num_cols):
-                board_str += str(self._array[i][j])
-            board_str += "\n"
-        print(board_str)
-
-
 if __name__ == "__main__":
 
     letter_points = {'A': 1, 'B': 3, 'C': 3, 'D': 2, 'E': 1, 'F': 4, 'G': 2,
@@ -254,16 +232,8 @@ if __name__ == "__main__":
 
     dictionary_file = "dictionary.txt"  # Assuming "dictionary.txt" contains the valid words
     dictionary = load_dictionary(dictionary_file)
-
-    #big_list = open("lexicon/scrabble_words_complete.txt", "r").readlines()
-    #big_list = [word.strip("\n") for word in big_list]
-    #build_trie(dictionary)
     root = build_dawg(dictionary)
-
-    #to_load = open("lexicon/scrabble_words_complete.pickle", "rb")
-    #root = pickle.load(to_load)
-    print(root)
-    #to_load.close()
+    #print(root)
 
     file_path = "C2.txt"
     test_cases_content = parse_tests_file(file_path)
@@ -277,13 +247,7 @@ if __name__ == "__main__":
         print(f"{test_number}:")
 
         ordered_letters_list = list(map(str.upper, list(ordered_letters)))
-
-        # print("Ordered Letters:", ordered_letters)
-        # print("Board Definition:")
-        # print(board_definition)
-        b = Board(board_definition)
-
-        run_test_case(ordered_letters_list, board_definition, letter_points, dictionary_file)
+        board_params = BoardParams(board_definition)
 
         pygame.init()
 
@@ -304,11 +268,11 @@ if __name__ == "__main__":
         score_font = pygame.font.Font(None, 25)
         game_state = "start_screen"
 
-        tile_bag = ordered_letters_list
-        print(f"{tile_bag}")
+        tile_bag = copy.deepcopy(ordered_letters_list)
+        #print(f"{tile_bag}")
         word_rack = tile_bag[:7]
         [tile_bag.remove(letter) for letter in word_rack]
-        game = ScrabbleBoard(root)
+        game = ScrabbleBoard(root, board_params)
         word_rack = game.get_start_move(word_rack)
         word_rack, new_letters = refill_word_rack(word_rack, tile_bag)
         [tile_bag.remove(letter) for letter in new_letters]
@@ -326,11 +290,8 @@ if __name__ == "__main__":
                         game_state = "game_screen"
                     if event.key == pygame.K_SPACE and game_state == "end_screen":
                         game_state = "game_screen"
-                        tile_bag = ["A"] * 9 + ["B"] * 2 + ["C"] * 2 + ["D"] * 4 + ["E"] * 12 + ["F"] * 2 + ["G"] * 3 + \
-                                   ["H"] * 2 + ["I"] * 9 + ["J"] * 1 + ["K"] * 1 + ["L"] * 4 + ["M"] * 2 + ["N"] * 6 + \
-                                   ["O"] * 8 + ["P"] * 2 + ["Q"] * 1 + ["R"] * 6 + ["S"] * 4 + ["T"] * 6 + ["U"] * 4 + \
-                                   ["V"] * 2 + ["W"] * 2 + ["X"] * 1 + ["Y"] * 2 + ["Z"] * 1 + ["%"] * 2
-                        print(f"{tile_bag}")
+                        tile_bag = copy.deepcopy(ordered_letters_list)
+                        #print(f"{tile_bag}")
 
                         word_rack = tile_bag[:7]
                         [tile_bag.remove(letter) for letter in word_rack]
@@ -358,17 +319,17 @@ if __name__ == "__main__":
 
                     else:
                         game_state = "end_screen"
-                        for word in all_board_words(game.board):
+                        for word in all_board_words(game.board, board_params):
                             if not find_in_dawg(word, root) and word:
                                 raise Exception(f"Invalid word on board: {word}")
 
             if game_state == "end_screen":
-                draw_board(game.board)
+                draw_board(game.board, board_params)
                 draw_rack(word_rack)
                 draw_computer_score(game.word_score_dict)
                 continue
 
-            draw_board(game.board)
+            draw_board(game.board, board_params)
             draw_rack(word_rack)
             draw_computer_score(game.word_score_dict)
             pygame.time.wait(75)

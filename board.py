@@ -1,8 +1,16 @@
-from dawg import *
 import regex as re
-import random
 import copy
 
+class BoardParams:
+    def __init__(self, board_def):
+        board_lines = board_def.strip().split('\n')
+        self.num_rows, self.num_cols = map(int, board_lines[0].split(','))
+        self.start_row, self.start_col = map(int, board_lines[1].split(','))
+        self.special_tiles = {}
+        self.num_special_tiles = int(board_lines[2])
+        for i in range(3, 3 + self.num_special_tiles):
+            row, col, tile_type = board_lines[i].split(',')
+            self.special_tiles[(int(row), int(col))] = tile_type
 
 class Square:
     # default behavior is blank square, no score modifier, all cross-checks valid
@@ -33,68 +41,15 @@ class Square:
 
 
 class ScrabbleBoard:
-    def __init__(self, dawg_root):
+    def __init__(self, dawg_root, board_params):
 
-        row_1 = \
-            [Square(modifier="3WS"), Square(), Square(), Square(modifier="2LS"), Square(),
-             Square(), Square(), Square(modifier="3WS"), Square(), Square(),
-             Square(), Square(modifier="2LS"), Square(), Square(), Square(modifier="3WS"),
-             Square(sentinel=0)]
-        row_15 = copy.deepcopy(row_1)
-
-        row_2 = \
-            [Square(), Square(modifier="2WS"), Square(), Square(), Square(),
-             Square(modifier="3LS"), Square(), Square(), Square(), Square(modifier="3LS"),
-             Square(), Square(), Square(), Square(modifier="2WS"), Square(),
-             Square(sentinel=0)]
-        row_14 = copy.deepcopy(row_2)
-
-        row_3 = \
-            [Square(), Square(), Square(modifier="2WS"), Square(), Square(),
-             Square(), Square(modifier="2LS"), Square(), Square(modifier="2LS"), Square(),
-             Square(), Square(), Square(modifier="2WS"), Square(), Square(),
-             Square(sentinel=0)]
-        row_13 = copy.deepcopy(row_3)
-
-        row_4 = \
-            [Square(modifier="2LS"), Square(), Square(), Square(modifier="2WS"), Square(),
-             Square(), Square(), Square(modifier="2LS"), Square(), Square(),
-             Square(), Square(modifier="2WS"), Square(), Square(), Square(modifier="2LS"),
-             Square(sentinel=0)]
-        row_12 = copy.deepcopy(row_4)
-
-        row_5 = \
-            [Square(), Square(), Square(), Square(), Square(modifier="2WS"),
-             Square(), Square(), Square(), Square(), Square(),
-             Square(modifier="2WS"), Square(), Square(), Square(), Square(),
-             Square(sentinel=0)]
-        row_11 = copy.deepcopy(row_5)
-
-        row_6 = \
-            [Square(), Square(modifier="3LS"), Square(), Square(), Square(),
-             Square(modifier="3LS"), Square(), Square(), Square(), Square(modifier="3LS"),
-             Square(), Square(), Square(), Square(modifier="3LS"), Square(),
-             Square(sentinel=0)]
-        row_10 = copy.deepcopy(row_6)
-
-        row_7 = \
-            [Square(), Square(), Square(modifier="2LS"), Square(), Square(),
-             Square(), Square(modifier="2LS"), Square(), Square(modifier="2LS"), Square(),
-             Square(), Square(), Square(modifier="2LS"), Square(), Square(),
-             Square(sentinel=0)]
-        row_9 = copy.deepcopy(row_7)
-
-        row_8 = \
-            [Square(modifier="3WS"), Square(), Square(), Square(modifier="2LS"), Square(),
-             Square(), Square(), Square(modifier="2WS"), Square(), Square(),
-             Square(), Square(modifier="2LS"), Square(), Square(), Square(modifier="3WS"),
-             Square(sentinel=0)]
-
-        row_16 = [Square(sentinel=0) for _ in range(16)]
-
-        # variables to describe board state
-        self.board = [row_1, row_2, row_3, row_4, row_5, row_6, row_7, row_8,
-                      row_9, row_10, row_11, row_12, row_13, row_14, row_15, row_16]
+        self.board_params = board_params
+        self.board = []
+        for row in range(self.board_params.num_rows):
+            row_list = []
+            for col in range(self.board_params.num_cols):
+                row_list.append(Square())
+            self.board.append(row_list)
 
         self.point_dict = {'A': 1, 'B': 3, 'C': 3, 'D': 2, 'E': 1, 'F': 4, 'G': 2,
                      'H': 4, 'I': 1, 'J': 8, 'K': 5, 'L': 1, 'M': 3,
@@ -194,7 +149,10 @@ class ScrabbleBoard:
                 self._score_word(word, squares, dist_from_anchor)
             for letter in start_node.children:
                 # if square already has letters above and below it, don't try to extend
-                if self.board[square_row + 1][square_col].letter and self.board[square_row - 1][square_col].letter:
+                if (square_row + 1 <= self.board_params.num_rows - 1) and\
+                        self.board[square_row + 1][square_col].letter and \
+                        (square_row - 1 >= 0) and\
+                        self.board[square_row - 1][square_col].letter:
                     continue
 
                 # conditional for blank squares
@@ -214,9 +172,13 @@ class ScrabbleBoard:
                         new_word = word + letter
                         new_rack.remove(letter)
                     new_squares = squares + [square]
+                    if square_col + 1 == self.board_params.num_cols:
+                        return
                     self._extend_right(new_node, square_row, square_col + 1, new_rack, new_word, new_squares,
                                        dist_from_anchor)
         else:
+            if square_col + 1 == self.board_params.num_cols:
+                return
             if square.letter in start_node.children:
                 new_node = start_node.children[square.letter]
                 new_word = word + square.letter
@@ -325,10 +287,10 @@ class ScrabbleBoard:
 
     def print_board(self):
         print("    ", end="")
-        [print(str(num).zfill(2), end=" ") for num in range(1, 16)]
+        [print(str(num).zfill(2), end=" ") for num in range(1, self.board_params.num_cols+1)]
         print()
         for i, row in enumerate(self.board):
-            if i != 15:
+            if i != self.board_params.num_rows:
                 print(str(i + 1).zfill(2), end="  ")
             [print(square, end="  ") for square in row]
             print()
@@ -339,7 +301,7 @@ class ScrabbleBoard:
     def insert_word(self, row, col, word):
         row -= 1
         col -= 1
-        if len(word) + col > 15:
+        if len(word) + col > self.board_params.num_cols:
             print(f'Cannot insert word "{word}" at column {col + 1}, '
                   f'row {row + 1} not enough space')
             return
@@ -354,7 +316,7 @@ class ScrabbleBoard:
                 if curr_square_letter == letter:
                     if row > 0:
                         self.upper_cross_check.append((self.board[row - 1][curr_col], letter, row, curr_col))
-                    if row < 15:
+                    if row < self.board_params.num_rows:
                         self.lower_cross_check.append((self.board[row + 1][curr_col], letter, row, curr_col))
 
                     curr_col += 1
@@ -377,14 +339,14 @@ class ScrabbleBoard:
                 # once letter is inserted, add squares above and below it to cross_check_queue
                 if row > 0:
                     self.upper_cross_check.append((self.board[row - 1][curr_col], letter, row, curr_col))
-                if row < 15:
+                if row < self.board_params.num_rows:
                     self.lower_cross_check.append((self.board[row + 1][curr_col], letter, row, curr_col))
 
                 curr_col += 1
 
         # place 0 cross-check sentinel at the beginning and end of inserted words to stop accidental overlap.
         # sentinels should only be for the board state opposite from the one the board is currently in
-        if curr_col < 15:
+        if curr_col < self.board_params.num_cols:
             if self.is_transpose:
                 self.board[self.best_row][curr_col].cross_checks_0 = [0] * 26
             else:
@@ -395,7 +357,8 @@ class ScrabbleBoard:
             else:
                 self.board[self.best_row][col - 1].cross_checks_1 = [0] * 26
 
-        self._update_cross_checks()
+        # TODO: disable for now
+        #self._update_cross_checks()
 
         self.words_on_board.append(word)
 
@@ -431,7 +394,8 @@ class ScrabbleBoard:
         self.word_rack = word_rack
 
         # clear out cross-check lists before adding new words
-        self._update_cross_checks()
+        # TODO: disable for now
+        #self._update_cross_checks()
 
         # reset word variables to clear out words from previous turns
         self.best_word = ""
@@ -440,8 +404,8 @@ class ScrabbleBoard:
         self.best_col = 0
 
         transposed = False
-        for row in range(0, 15):
-            for col in range(0, 15):
+        for row in range(0, self.board_params.num_rows):
+            for col in range(0, self.board_params.num_cols):
                 curr_square = self.board[row][col]
                 if curr_square.letter and (not self.board[row][col - 1].letter):
                     prev_best_score = self.highest_score
@@ -451,11 +415,12 @@ class ScrabbleBoard:
                         self.best_col = col
 
         self._transpose()
-        for row in range(0, 15):
-            for col in range(0, 15):
+        for row in range(0, self.board_params.num_rows):
+            for col in range(0, self.board_params.num_cols):
                 curr_square = self.board[row][col]
                 if curr_square.letter and (not self.board[row][col - 1].letter):
                     prev_best_score = self.highest_score
+                    # TODO: looks strange, why +1 on row? is it a variant on the game?
                     self.get_all_words(row + 1, col + 1, word_rack)
                     if self.highest_score > prev_best_score:
                         transposed = True
@@ -485,18 +450,19 @@ class ScrabbleBoard:
     def get_start_move(self, word_rack):
         # board symmetrical at start so just always play the start move horizontally
         # try every letter in rack as possible anchor square
-        self.best_row = 7
-        self.best_col = 8
+        # TODO: get if from board params
+        self.best_row = int(self.board_params.num_rows/2)
+        self.best_col = int(self.board_params.num_cols/2) + 1
         for i, letter in enumerate(word_rack):
-            potential_square = self.board[7][8]
+            potential_square = self.board[self.best_row][self.best_col]
             temp_rack = word_rack[:i] + word_rack[i + 1:]
             potential_square.letter = letter
-            self._left_part(self.dawg_root, 7, 8, temp_rack, "", [], 6, 1)
+            self._left_part(self.dawg_root, self.best_row, self.best_col, temp_rack, "", [], self.best_col-2, 1)
 
         # reset anchor square spot to blank after trying all combinations
-        self.board[7][8].letter = None
+        self.board[self.best_row][self.best_col].letter = None
         self.insert_word(self.best_row + 1, self.best_col + 1 - self.dist_from_anchor, self.best_word)
-        self.board[7][8].modifier = ""
+        self.board[self.best_row][self.best_col].modifier = ""
         self.word_score_dict[self.best_word] = self.highest_score
 
         for letter in self.letters_from_rack:
@@ -506,93 +472,7 @@ class ScrabbleBoard:
         return word_rack
 
 
-# returns a list of all words played on the board
-def all_board_words(board):
-    board_words = []
-
-    # check regular board
-    for row in range(0, 15):
-        temp_word = ""
-        for col in range(0, 16):
-            letter = board[row][col].letter
-            if letter:
-                temp_word += letter
-            else:
-                if len(temp_word) > 1:
-                    board_words.append(temp_word)
-                temp_word = ""
-
-    # check transposed board
-    for col in range(0, 16):
-        temp_word = ""
-        for row in range(0, 16):
-            letter = board[row][col].letter
-            if letter:
-                temp_word += letter
-            else:
-                if len(temp_word) > 1:
-                    board_words.append(temp_word)
-                temp_word = ""
-
-    return board_words
 
 
-def refill_word_rack(rack, tile_bag):
-    to_add = min([7 - len(rack), len(tile_bag)])
-    new_letters = random.sample(tile_bag, to_add)
-    rack = rack + new_letters
-    return rack, new_letters
 
 
-def play_game():
-    score = 0
-    tile_bag = ["A"] * 9 + ["B"] * 2 + ["C"] * 2 + ["D"] * 4 + ["E"] * 12 + ["F"] * 2 + ["G"] * 3 + \
-               ["H"] * 2 + ["I"] * 9 + ["J"] * 1 + ["K"] * 1 + ["L"] * 4 + ["M"] * 2 + ["N"] * 6 + \
-               ["O"] * 8 + ["P"] * 2 + ["Q"] * 1 + ["R"] * 6 + ["S"] * 4 + ["T"] * 6 + ["U"] * 4 + \
-               ["V"] * 2 + ["W"] * 2 + ["X"] * 1 + ["Y"] * 2 + ["Z"] * 1 + ["%"] * 2
-
-    to_load = open("lexicon/scrabble_words_complete.pickle", "rb")
-    root = pickle.load(to_load)
-    to_load.close()
-    word_rack = random.sample(tile_bag, 7)
-    [tile_bag.remove(letter) for letter in word_rack]
-    game = ScrabbleBoard(root)
-    word_rack = game.get_start_move(word_rack)
-    score += game.highest_score
-    word_rack, new_letters = refill_word_rack(word_rack, tile_bag)
-    [tile_bag.remove(letter) for letter in new_letters]
-
-    play = True
-    while play:
-        word_rack = game.get_best_move(word_rack)
-        score += game.highest_score
-        word_rack, new_letters = refill_word_rack(word_rack, tile_bag)
-        [tile_bag.remove(letter) for letter in new_letters]
-        if game.best_word == "":
-            # draw new hand if can't find any words
-            if len(tile_bag) >= 7:
-                return_to_bag_words = word_rack.copy()
-                word_rack, new_letters = refill_word_rack([], tile_bag)
-                [tile_bag.remove(letter) for letter in new_letters]
-
-            else:
-                play = False
-                for word in all_board_words(game.board):
-                    if not find_in_dawg(word, root) and word:
-                        game.print_board()
-                        raise Exception(f"Invalid word on board: {word}")
-
-    # game.print_board()
-
-    return score
-
-
-if __name__ == "__main__":
-    random.seed(3)
-    scores = []
-    runs = 1000
-    for _ in range(runs):
-        scores.append(play_game())
-
-    print(sum(scores) / runs)
-    # avg 710.833
