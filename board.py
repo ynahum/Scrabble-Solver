@@ -232,11 +232,11 @@ class ScrabbleBoard:
             # prevent cross stacking deeper than 2 layers
             if curr_square.letter:
                 if not self.is_transpose:
-                    self.board[lower_row - 2][lower_col].cross_checks_0 = [0] * 26
+                    self.board[lower_row - 1][lower_col].cross_checks_0 = [0] * 26
                     self.board[lower_row + 1][lower_col].cross_checks_0 = [0] * 26
 
                 else:
-                    self.board[lower_row - 2][lower_col].cross_checks_1 = [0] * 26
+                    self.board[lower_row - 1][lower_col].cross_checks_1 = [0] * 26
                     self.board[lower_row + 1][lower_col].cross_checks_1 = [0] * 26
                 continue
 
@@ -262,10 +262,10 @@ class ScrabbleBoard:
             if curr_square.letter:
                 if not self.is_transpose:
                     self.board[upper_row - 1][upper_col].cross_checks_0 = [0] * 26
-                    self.board[upper_row + 2][upper_col].cross_checks_0 = [0] * 26
+                    self.board[upper_row + 1][upper_col].cross_checks_0 = [0] * 26
                 else:
                     self.board[upper_row - 1][upper_col].cross_checks_1 = [0] * 26
-                    self.board[upper_row + 2][upper_col].cross_checks_1 = [0] * 26
+                    self.board[upper_row + 1][upper_col].cross_checks_1 = [0] * 26
                 continue
 
             for i, ind in enumerate(curr_square.cross_checks):
@@ -299,8 +299,6 @@ class ScrabbleBoard:
     # method to insert words into board by row and column number
     # using 1-based indexing for user input
     def insert_word(self, row, col, word):
-        row -= 1
-        col -= 1
         if len(word) + col > self.board_params.num_cols:
             print(f'Cannot insert word "{word}" at column {col + 1}, '
                   f'row {row + 1} not enough space')
@@ -316,7 +314,7 @@ class ScrabbleBoard:
                 if curr_square_letter == letter:
                     if row > 0:
                         self.upper_cross_check.append((self.board[row - 1][curr_col], letter, row, curr_col))
-                    if row < self.board_params.num_rows:
+                    if row < self.board_params.num_rows-1:
                         self.lower_cross_check.append((self.board[row + 1][curr_col], letter, row, curr_col))
 
                     curr_col += 1
@@ -339,7 +337,7 @@ class ScrabbleBoard:
                 # once letter is inserted, add squares above and below it to cross_check_queue
                 if row > 0:
                     self.upper_cross_check.append((self.board[row - 1][curr_col], letter, row, curr_col))
-                if row < self.board_params.num_rows:
+                if row < self.board_params.num_rows-1:
                     self.lower_cross_check.append((self.board[row + 1][curr_col], letter, row, curr_col))
 
                 curr_col += 1
@@ -357,15 +355,12 @@ class ScrabbleBoard:
             else:
                 self.board[self.best_row][col - 1].cross_checks_1 = [0] * 26
 
-        # TODO: disable for now
-        #self._update_cross_checks()
+        self._update_cross_checks()
 
         self.words_on_board.append(word)
 
     # gets all words that can be made using a selected filled square and the current word rack
     def get_all_words(self, square_row, square_col, rack):
-        square_row -= 1
-        square_col -= 1
 
         # get all words that start with the filled letter
         self._extend_right(self.dawg_root, square_row, square_col, rack, "", [], 0)
@@ -394,8 +389,7 @@ class ScrabbleBoard:
         self.word_rack = word_rack
 
         # clear out cross-check lists before adding new words
-        # TODO: disable for now
-        #self._update_cross_checks()
+        self._update_cross_checks()
 
         # reset word variables to clear out words from previous turns
         self.best_word = ""
@@ -407,25 +401,26 @@ class ScrabbleBoard:
         for row in range(0, self.board_params.num_rows):
             for col in range(0, self.board_params.num_cols):
                 curr_square = self.board[row][col]
-                if curr_square.letter and (not self.board[row][col - 1].letter):
-                    prev_best_score = self.highest_score
-                    self.get_all_words(row + 1, col + 1, word_rack)
-                    if self.highest_score > prev_best_score:
-                        self.best_row = row
-                        self.best_col = col
+                if curr_square.letter:
+                    if ((col > 0) and (not self.board[row][col - 1].letter)) or col == 0:
+                        prev_best_score = self.highest_score
+                        self.get_all_words(row, col, word_rack)
+                        if self.highest_score > prev_best_score:
+                            self.best_row = row
+                            self.best_col = col
 
         self._transpose()
-        for row in range(0, self.board_params.num_rows):
-            for col in range(0, self.board_params.num_cols):
+        for row in range(0, self.board_params.num_cols):
+            for col in range(0, self.board_params.num_rows):
                 curr_square = self.board[row][col]
-                if curr_square.letter and (not self.board[row][col - 1].letter):
-                    prev_best_score = self.highest_score
-                    # TODO: looks strange, why +1 on row? is it a variant on the game?
-                    self.get_all_words(row + 1, col + 1, word_rack)
-                    if self.highest_score > prev_best_score:
-                        transposed = True
-                        self.best_row = row
-                        self.best_col = col
+                if curr_square.letter:
+                    if ((col > 0) and (not self.board[row][col - 1].letter)) or col == 0:
+                        prev_best_score = self.highest_score
+                        self.get_all_words(row, col, word_rack)
+                        if self.highest_score > prev_best_score:
+                            transposed = True
+                            self.best_row = row
+                            self.best_col = col
 
         # Don't try to insert word if we couldn't find one
         if not self.best_word:
@@ -433,11 +428,11 @@ class ScrabbleBoard:
             return word_rack
 
         if transposed:
-            self.insert_word(self.best_row + 1, self.best_col + 1 - self.dist_from_anchor, self.best_word)
+            self.insert_word(self.best_row, self.best_col - self.dist_from_anchor, self.best_word)
             self._transpose()
         else:
             self._transpose()
-            self.insert_word(self.best_row + 1, self.best_col + 1 - self.dist_from_anchor, self.best_word)
+            self.insert_word(self.best_row, self.best_col - self.dist_from_anchor, self.best_word)
 
         self.word_score_dict[self.best_word] = self.highest_score
 
@@ -451,13 +446,13 @@ class ScrabbleBoard:
         # board symmetrical at start so just always play the start move horizontally
         # try every letter in rack as possible anchor square
         # TODO: get if from board params
-        self.best_row = int(self.board_params.num_rows/2)
-        self.best_col = int(self.board_params.num_cols/2) + 1
+        self.best_row = self.board_params.start_row
+        self.best_col = self.board_params.start_col
         for i, letter in enumerate(word_rack):
             potential_square = self.board[self.best_row][self.best_col]
             temp_rack = word_rack[:i] + word_rack[i + 1:]
             potential_square.letter = letter
-            self._left_part(self.dawg_root, self.best_row, self.best_col, temp_rack, "", [], self.best_col-2, 1)
+            self._left_part(self.dawg_root, self.best_row, self.best_col, temp_rack, "", [], self.best_col-1, 1)
 
         # reset anchor square spot to blank after trying all combinations
         self.board[self.best_row][self.best_col].letter = None

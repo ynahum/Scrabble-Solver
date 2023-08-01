@@ -241,7 +241,7 @@ if __name__ == "__main__":
 
     for test_number, ordered_letters, board_definition in parsed_test_cases:
 
-        if test_number != 1:
+        if test_number != 2:
             continue
 
         print(f"{test_number}:")
@@ -295,7 +295,7 @@ if __name__ == "__main__":
 
                         word_rack = tile_bag[:7]
                         [tile_bag.remove(letter) for letter in word_rack]
-                        game = ScrabbleBoard(root)
+                        game = ScrabbleBoard(root, board_params)
                         game.get_start_move(word_rack)
                         word_rack, new_letters = refill_word_rack(word_rack, tile_bag)
                         [tile_bag.remove(letter) for letter in new_letters]
