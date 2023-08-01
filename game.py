@@ -241,7 +241,7 @@ if __name__ == "__main__":
 
     for test_number, ordered_letters, board_definition in parsed_test_cases:
 
-        if test_number != 2:
+        if test_number >= 3:
             continue
 
         print(f"{test_number}:")
@@ -266,7 +266,6 @@ if __name__ == "__main__":
         modifier_font = pygame.font.Font(None, 12)
         tile_font = pygame.font.Font(None, 45)
         score_font = pygame.font.Font(None, 25)
-        game_state = "start_screen"
 
         tile_bag = copy.deepcopy(ordered_letters_list)
         #print(f"{tile_bag}")
@@ -282,16 +281,10 @@ if __name__ == "__main__":
         while True:
             pygame.display.update()
             for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
                 if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_SPACE and game_state == "start_screen":
-                        game_state = "game_screen"
-                    if event.key == pygame.K_SPACE and game_state == "end_screen":
-                        game_state = "game_screen"
+                    if event.key == pygame.K_SPACE:
                         tile_bag = copy.deepcopy(ordered_letters_list)
-                        #print(f"{tile_bag}")
+                        print(f"{tile_bag}")
 
                         word_rack = tile_bag[:7]
                         [tile_bag.remove(letter) for letter in word_rack]
@@ -300,34 +293,26 @@ if __name__ == "__main__":
                         word_rack, new_letters = refill_word_rack(word_rack, tile_bag)
                         [tile_bag.remove(letter) for letter in new_letters]
 
-            if game_state == "start_screen":
-                draw_start_screen()
-                continue
+            screen.fill((0, 0, 0))
 
-            if game_state == "game_screen":
-                screen.fill((0, 0, 0))
+            word_rack = game.get_best_move(word_rack)
+            word_rack, new_letters = refill_word_rack(word_rack, tile_bag)
+            [tile_bag.remove(letter) for letter in new_letters]
+            if game.best_word == "":
+                # draw new hand if can't find any words
+                if len(tile_bag) >= 7:
+                    return_to_bag_words = word_rack.copy()
+                    word_rack, new_letters = refill_word_rack([], tile_bag)
+                    [tile_bag.remove(letter) for letter in new_letters]
 
-                word_rack = game.get_best_move(word_rack)
-                word_rack, new_letters = refill_word_rack(word_rack, tile_bag)
-                [tile_bag.remove(letter) for letter in new_letters]
-                if game.best_word == "":
-                    # draw new hand if can't find any words
-                    if len(tile_bag) >= 7:
-                        return_to_bag_words = word_rack.copy()
-                        word_rack, new_letters = refill_word_rack([], tile_bag)
-                        [tile_bag.remove(letter) for letter in new_letters]
-
-                    else:
-                        game_state = "end_screen"
-                        for word in all_board_words(game.board, board_params):
-                            if not find_in_dawg(word, root) and word:
-                                raise Exception(f"Invalid word on board: {word}")
-
-            if game_state == "end_screen":
-                draw_board(game.board, board_params)
-                draw_rack(word_rack)
-                draw_computer_score(game.word_score_dict)
-                continue
+                else:
+                    #for word in all_board_words(game.board, board_params):
+                    #    if not find_in_dawg(word, root) and word:
+                    #        raise Exception(f"Invalid word on board: {word}")
+                    draw_board(game.board, board_params)
+                    draw_rack(word_rack)
+                    draw_computer_score(game.word_score_dict)
+                    break
 
             draw_board(game.board, board_params)
             draw_rack(word_rack)
